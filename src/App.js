@@ -1,25 +1,104 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useEffect } from "react";
+import { Container, Button } from "react-bootstrap";
+import Login from "./components/Login";
+import TicketTable from "./components/TicketTable";
 
-function App() {
+const App = () => {
+  const [tickets, setTickets] = useState([]);
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [username, setUsername] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    if (token) {
+      fetch("http://localhost:5000/api/tickets", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((response) => response.json())
+        .then((data) => setTickets(data))
+        .catch((error) => console.error("Error fetching tickets:", error));
+    }
+  }, [token]);
+
+  const handleLogin = async ({ username, password }) => {
+    try {
+      const response = await fetch("http://localhost:5000/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setToken(data.token);
+        localStorage.setItem("role", data.userRole);
+        localStorage.setItem("user_name", username);
+        localStorage.setItem("token", data.token);
+      } else {
+        console.error("Login failed");
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+    setUsername(null);
+    setUserRole(null);
+  };
+
+  const handleRefresh = () => {
+    // Retrieve the token from localStorage
+    const token = localStorage.getItem("token");
+
+    // Make a GET request to fetch all tickets
+    fetch("http://localhost:5000/api/tickets", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => setTickets(data))
+      .catch((error) => console.error("Error fetching tickets:", error));
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
+   
+<Container>
+  <div className="d-flex justify-content-end align-items-center mt-2">
+    {token && (
+      <div>
         <p>
-          Edit <code>src/App.js</code> and save to reload.
+          Welcome, {localStorage.getItem("username")}
+          <br />
+          Role: {localStorage.getItem("role")}
         </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+        <Button variant="danger" style={{ marginRight: "8px" }} onClick={handleLogout}>
+  Logout
+</Button>
+<Button variant="primary" style={{ marginRight: "8px" }} onClick={handleRefresh}>
+  Refresh
+</Button>
+
+      </div>
+    )}
+  </div>
+
+  {token ? (
+    <div>
+      <TicketTable tickets={tickets} />
     </div>
+  ) : (
+    <Login onLogin={handleLogin} />
+  )}
+</Container>
   );
-}
+};
 
 export default App;
